@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML 知识卡片转图片工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .preview-container {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+            min-height: 400px;
+            overflow: auto;
+        }
+
+        #preview {
+            background: white;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .scale-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+
+        .scale-control label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .scale-control input {
+            width: 100px;
+        }
+
+        @media (max-width: 968px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+
+        .loading.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 HTML 知识卡片转图片工具</h1>
+            <p>粘贴 HTML 代码，实时预览并下载高清图片</p>
+        </div>
+
+        <div class="content">
+            <div class="panel">
+                <h2>HTML 代码输入</h2>
+                <textarea id="htmlInput" placeholder="在这里粘贴你的 HTML 代码..."></textarea>
+                <div class="controls">
+                    <button class="btn-secondary" onclick="clearInput()">
+                        🗑️ 清空
+                    </button>
+                    <button class="btn-secondary" onclick="loadExample()">
+                        📄 加载示例
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>预览效果</h2>
+                <div class="preview-container">
+                    <div id="preview"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn-primary" onclick="downloadImage()">
+                        📥 下载高清图片
+                    </button>
+                    <div class="scale-control">
+                        <label>图片质量:</label>
+                        <input type="range" id="scaleInput" min="1" max="5" value="3" step="0.5">
+                        <span id="scaleValue">3x</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">正在生成图片...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script>
+        const htmlInput = document.getElementById('htmlInput');
+        const preview = document.getElementById('preview');
+        const scaleInput = document.getElementById('scaleInput');
+        const scaleValue = document.getElementById('scaleValue');
+        const loading = document.getElementById('loading');
+
+        // 实时预览
+        htmlInput.addEventListener('input', updatePreview);
+
+        function updatePreview() {
+            const htmlCode = htmlInput.value;
+            preview.innerHTML = htmlCode;
+        }
+
+        // 清空输入
+        function clearInput() {
+            htmlInput.value = '';
+            preview.innerHTML = '';
+        }
+
+        // 更新缩放值显示
+        scaleInput.addEventListener('input', function() {
+            scaleValue.textContent = this.value + 'x';
+        });
+
+        // 下载图片
+        async function downloadImage() {
+            if (!preview.innerHTML.trim()) {
+                alert('请先输入 HTML 代码！');
+                return;
+            }
+
+            loading.classList.add('show');
+
+            try {
+                const scale = parseFloat(scaleInput.value);
+
+                const canvas = await html2canvas(preview, {
+                    scale: scale,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: null,
+                    logging: false,
+                    width: preview.scrollWidth,
+                    height: preview.scrollHeight
+                });
+
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    const timestamp = new Date().getTime();
+                    link.download = `knowledge-card-${timestamp}.png`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    loading.classList.remove('show');
+                }, 'image/png');
+
+            } catch (error) {
+                console.error('生成图片失败:', error);
+                alert('生成图片失败，请检查 HTML 代码是否正确');
+                loading.classList.remove('show');
+            }
+        }
+
+        // 加载示例
+        function loadExample() {
+            const exampleHTML = `<div style="width: 600px; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; color: white; font-family: Arial, sans-serif;">
+    <h1 style="font-size: 32px; margin-bottom: 20px;">🚀 知识卡片示例</h1>
+    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; backdrop-filter: blur(10px);">
+        <h2 style="font-size: 24px; margin-bottom: 15px;">什么是 HTML？</h2>
+        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">
+            HTML（超文本标记语言）是用于创建网页的标准标记语言。它描述了网页的结构和内容。
+        </p>
+        <ul style="font-size: 14px; line-height: 1.8; padding-left: 20px;">
+            <li>HTML 使用标签来标记内容</li>
+            <li>浏览器解析 HTML 并显示网页</li>
+            <li>HTML5 是最新的标准版本</li>
+        </ul>
+    </div>
+    <div style="margin-top: 20px; text-align: right; font-size: 12px; opacity: 0.8;">
+        生成时间: ${new Date().toLocaleDateString('zh-CN')}
+    </div>
+</div>`;
+            htmlInput.value = exampleHTML;
+            updatePreview();
+        }
+    </script>
+</body>
+</html>
